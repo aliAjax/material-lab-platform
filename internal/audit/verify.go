@@ -8,8 +8,14 @@ import (
 )
 
 func ValidateAppend(previous *domain.AuditEvent, next domain.AuditEvent) error {
-	if next.ID == "" || next.Action == "" || next.Object == "" || next.ObjectID == "" || next.RequestID == "" {
+	if next.ID == "" {
 		return fmt.Errorf("audit identity fields are required")
+	}
+	if next.Action == "" || next.Object == "" {
+		return fmt.Errorf("audit action is missing")
+	}
+	if next.ObjectID == "" || next.RequestID == "" {
+		return fmt.Errorf("audit relation is missing")
 	}
 	if next.CreatedAt.IsZero() {
 		return fmt.Errorf("audit timestamp is required")

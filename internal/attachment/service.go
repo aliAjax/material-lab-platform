@@ -128,6 +128,9 @@ func NewService(storage Storage, maxSize int64) *Service {
 }
 
 func (s *Service) Upload(ctx context.Context, ownerType, ownerID, filename, actor string, source io.Reader) (Object, error) {
+	if err := ctx.Err(); err != nil {
+		return Object{}, err
+	}
 	if err := domain.Require(ownerID, "ownerId"); err != nil {
 		return Object{}, err
 	}
@@ -162,7 +165,10 @@ func (s *Service) Upload(ctx context.Context, ownerType, ownerID, filename, acto
 	}
 	key += safeExtension(filename)
 	if err = s.storage.Put(ctx, key, bytes.NewReader(content)); err != nil {
-		return Object{}, err
+		if cleanupErr := s.storage.Delete(ctx, key); cleanupErr != nil {
+			return Object{}, cleanupErr
+		}
+		return Object{}, errors.New(err.Error())
 	}
 	digest := sha256.Sum256(content)
 	return Object{ID: domain.NewID(), OwnerType: ownerType, OwnerID: ownerID, StorageKey: key, Filename: filename, ContentType: contentType, Size: int64(len(content)), SHA256: hex.EncodeToString(digest[:]), UploadedBy: actor, CreatedAt: time.Now().UTC()}, nil

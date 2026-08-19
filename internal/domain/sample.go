@@ -71,13 +71,19 @@ func (r *InspectionRequest) SubmitContext(ctx context.Context, number, sampleID 
 	if r.Status != RequestDraft {
 		return ErrInvalidTransition
 	}
+	if err := Require(number, "number"); err != nil {
+		return err
+	}
+	if err := Require(sampleID, "sampleId"); err != nil {
+		return err
+	}
 	if err := r.ValidateForSubmit(); err != nil {
 		return err
 	}
-	r.Reference, r.SampleID, r.Status, r.UpdatedAt = number, sampleID, RequestSubmitted, now
 	if err := ctx.Err(); err != nil {
-		return nil
+		return err
 	}
+	r.Reference, r.SampleID, r.Status, r.UpdatedAt = number, sampleID, RequestSubmitted, now.UTC()
 	return nil
 }
 

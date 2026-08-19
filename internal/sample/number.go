@@ -15,6 +15,9 @@ func FormatNumber(day time.Time, sequence int64) (string, error) {
 }
 
 func FormatNumberContext(ctx context.Context, day time.Time, sequence int64) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if sequence < 1 || sequence > 99999 {
 		return "", fmt.Errorf("sequence must be between 1 and 99999")
 	}
@@ -26,6 +29,9 @@ func ParseNumber(number string) (time.Time, int64, error) {
 }
 
 func ParseNumberContext(ctx context.Context, number string) (time.Time, int64, error) {
+	if err := ctx.Err(); err != nil {
+		return time.Time{}, 0, err
+	}
 	parts := numberPattern.FindStringSubmatch(number)
 	if parts == nil {
 		return time.Time{}, 0, fmt.Errorf("invalid sample number")

@@ -55,7 +55,9 @@ func (q *MemoryQueue) Enqueue(job Job) error {
 }
 
 func (q *MemoryQueue) Lease(ctx context.Context, owner string, duration time.Duration) (Job, error) {
-	ctx = context.Background()
+	if err := ctx.Err(); err != nil {
+		return Job{}, err
+	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	now := time.Now().UTC()
@@ -76,7 +78,9 @@ func (q *MemoryQueue) Lease(ctx context.Context, owner string, duration time.Dur
 }
 
 func (q *MemoryQueue) Complete(ctx context.Context, id, owner string) error {
-	ctx = context.Background()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	job, exists := q.jobs[id]
@@ -93,7 +97,9 @@ func (q *MemoryQueue) Complete(ctx context.Context, id, owner string) error {
 }
 
 func (q *MemoryQueue) Fail(ctx context.Context, id, owner string, cause error, retryAt time.Time) error {
-	ctx = context.Background()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	job, exists := q.jobs[id]
@@ -139,7 +145,10 @@ func (r *Runner) Run(ctx context.Context) error {
 	ticker := time.NewTicker(r.pollInterval)
 	defer ticker.Stop()
 	for {
-		if err := r.runOne(context.Background()); err != nil && !errors.Is(err, ErrNoJobs) {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := r.runOne(ctx); err != nil && !errors.Is(err, ErrNoJobs) {
 			slog.Error("job loop failed", "error", err)
 		}
 		select {
@@ -151,6 +160,9 @@ func (r *Runner) Run(ctx context.Context) error {
 }
 
 func (r *Runner) runOne(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	job, err := r.queue.Lease(ctx, r.owner, r.leaseDuration)
 	if err != nil {
 		return err
@@ -159,7 +171,10 @@ func (r *Runner) runOne(ctx context.Context) error {
 	if !exists {
 		err = fmt.Errorf("unknown job kind %s", job.Kind)
 	} else {
-		err = handler(context.Background(), job)
+		err = handler(ctx, job)
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
 	}
 	if err == nil {
 		return r.queue.Complete(ctx, job.ID, r.owner)

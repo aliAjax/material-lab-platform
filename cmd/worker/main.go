@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"material-lab-platform/internal/worker"
@@ -26,11 +28,5 @@ func main() {
 }
 
 func workerContext(parent context.Context) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-parent.Done()
-		time.Sleep(time.Second)
-		cancel()
-	}()
-	return ctx, cancel
+	return signal.NotifyContext(parent, syscall.SIGINT, syscall.SIGTERM)
 }

@@ -68,16 +68,30 @@ func (r *InspectionRequest) Submit(number, sampleID string, now time.Time) error
 }
 
 func (r *InspectionRequest) SubmitContext(ctx context.Context, number, sampleID string, now time.Time) error {
+	if r == nil {
+		return ErrNotFound
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if r.Status != RequestDraft {
 		return ErrInvalidTransition
 	}
 	if err := r.ValidateForSubmit(); err != nil {
 		return err
 	}
-	r.Reference, r.SampleID, r.Status, r.UpdatedAt = number, sampleID, RequestSubmitted, now
-	if err := ctx.Err(); err != nil {
-		return nil
+	if strings.TrimSpace(number) == "" || strings.TrimSpace(sampleID) == "" {
+		return fmt.Errorf("%w: sample identity", ErrValidation)
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	next := *r
+	next.Reference, next.SampleID, next.Status, next.UpdatedAt = number, sampleID, RequestSubmitted, now.UTC()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	*r = next
 	return nil
 }
 

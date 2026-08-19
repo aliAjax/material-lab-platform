@@ -18,6 +18,7 @@ import (
 	"material-lab-platform/internal/auth"
 	"material-lab-platform/internal/config"
 	"material-lab-platform/internal/domain"
+	"material-lab-platform/internal/health"
 	"material-lab-platform/internal/ports"
 )
 
@@ -45,6 +46,14 @@ func main() {
 		}
 		defer database.Close()
 		slog.Info("postgres repository enabled")
+	}
+	if os.Getenv("RUN_STARTUP_CHECKS") == "1" {
+		startupChecks := health.Run(context.Background(), buildHealthChecks(database))
+		for _, result := range startupChecks {
+			if !result.Healthy {
+				slog.Warn("startup dependency unavailable", "check", result.Name)
+			}
+		}
 	}
 	authService := auth.New(cfg.JWTSecret, cfg.AccessTTL, cfg.RefreshTTL)
 	seedUsers(authService)
@@ -82,6 +91,15 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("server stopped")
+}
+
+func buildHealthChecks(database *postgres.Pool) map[string]health.Check {
+	checks := map[string]health.Check{}
+	checks["process"] = func(context.Context) error { return nil }
+	checks["database"] = func(ctx context.Context) error {
+		return database.Ready(ctx)
+	}
+	return checks
 }
 
 func seedUsers(service *auth.Service) {

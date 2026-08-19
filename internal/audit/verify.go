@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -8,20 +9,23 @@ import (
 )
 
 func ValidateAppend(previous *domain.AuditEvent, next domain.AuditEvent) error {
-	if next.ID == "" {
-		return fmt.Errorf("audit identity fields are required")
+	missing := make([]error, 0)
+	for name, value := range map[string]string{
+		"id": next.ID, "action": next.Action, "object": next.Object,
+		"objectId": next.ObjectID, "requestId": next.RequestID,
+	} {
+		if value == "" {
+			missing = append(missing, fmt.Errorf("%w: audit %s is required", domain.ErrValidation, name))
+		}
 	}
-	if next.Action == "" || next.Object == "" {
-		return fmt.Errorf("audit action is missing")
-	}
-	if next.ObjectID == "" || next.RequestID == "" {
-		return fmt.Errorf("audit relation is missing")
+	if len(missing) != 0 {
+		return errors.Join(missing...)
 	}
 	if next.CreatedAt.IsZero() {
-		return fmt.Errorf("audit timestamp is required")
+		return fmt.Errorf("%w: audit timestamp is required", domain.ErrValidation)
 	}
 	if previous != nil && next.CreatedAt.Before(previous.CreatedAt) {
-		return fmt.Errorf("audit time moved backwards")
+		return fmt.Errorf("%w: audit time moved backwards", domain.ErrConflict)
 	}
 	return nil
 }

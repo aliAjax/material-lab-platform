@@ -131,7 +131,13 @@ func (s *Service) Upload(ctx context.Context, ownerType, ownerID, filename, acto
 	if err := ctx.Err(); err != nil {
 		return Object{}, err
 	}
+	if err := domain.Require(ownerType, "ownerType"); err != nil {
+		return Object{}, err
+	}
 	if err := domain.Require(ownerID, "ownerId"); err != nil {
+		return Object{}, err
+	}
+	if err := domain.Require(actor, "actor"); err != nil {
 		return Object{}, err
 	}
 	filename = filepath.Base(strings.TrimSpace(filename))
@@ -165,10 +171,13 @@ func (s *Service) Upload(ctx context.Context, ownerType, ownerID, filename, acto
 	}
 	key += safeExtension(filename)
 	if err = s.storage.Put(ctx, key, bytes.NewReader(content)); err != nil {
-		if cleanupErr := s.storage.Delete(ctx, key); cleanupErr != nil {
-			return Object{}, cleanupErr
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		defer cancel()
+		cleanupErr := s.storage.Delete(cleanupCtx, key)
+		if cleanupErr != nil && !errors.Is(cleanupErr, os.ErrNotExist) {
+			return Object{}, errors.Join(fmt.Errorf("store attachment: %w", err), fmt.Errorf("cleanup attachment: %w", cleanupErr))
 		}
-		return Object{}, errors.New(err.Error())
+		return Object{}, fmt.Errorf("store attachment: %w", err)
 	}
 	digest := sha256.Sum256(content)
 	return Object{ID: domain.NewID(), OwnerType: ownerType, OwnerID: ownerID, StorageKey: key, Filename: filename, ContentType: contentType, Size: int64(len(content)), SHA256: hex.EncodeToString(digest[:]), UploadedBy: actor, CreatedAt: time.Now().UTC()}, nil

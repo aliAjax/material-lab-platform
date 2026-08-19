@@ -12,19 +12,19 @@ import (
 var fieldNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
 func ValidateDefinition(definition domain.Method) []error {
-	errors := make([]error, 0)
+	validationErrors := make([]error, 0)
 	if err := definition.Validate(); err != nil {
-		errors = append(errors, err)
+		validationErrors = append(validationErrors, err)
 	}
 	for _, field := range definition.Fields {
 		if !fieldNamePattern.MatchString(field.Name) {
-			errors = append(errors, fmt.Errorf("field %q must use lower snake case", field.Name))
+			validationErrors = append(validationErrors, &domain.MethodFieldError{Field: field.Name, Err: fmt.Errorf("must use lower snake case")})
 		}
 		if strings.TrimSpace(field.Label) == "" {
-			errors = append(errors, fmt.Errorf("field %q label is required", field.Name))
+			validationErrors = append(validationErrors, &domain.MethodFieldError{Field: field.Name, Err: fmt.Errorf("label is required")})
 		}
 	}
-	return errors
+	return validationErrors
 }
 
 func JoinValidationErrors(definition domain.Method) error {
@@ -32,11 +32,7 @@ func JoinValidationErrors(definition domain.Method) error {
 	if len(validationErrors) == 0 {
 		return nil
 	}
-	messages := make([]string, 0, len(validationErrors))
-	for _, validationErr := range validationErrors {
-		messages = append(messages, validationErr.Error())
-	}
-	return errors.New(strings.Join(messages, "; "))
+	return errors.Join(validationErrors...)
 }
 
 func IsImmutable(definition domain.Method) bool {

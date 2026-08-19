@@ -55,6 +55,7 @@ type MethodFieldError struct {
 }
 
 func (e *MethodFieldError) Error() string { return fmt.Sprintf("method field %s: %v", e.Field, e.Err) }
+func (e *MethodFieldError) Unwrap() error { return e.Err }
 
 func (m *Method) Validate() error {
 	if err := Require(m.Code, "code"); err != nil {
@@ -86,7 +87,7 @@ func (m *Method) Validate() error {
 		return fmt.Errorf("%w: formula required", ErrValidation)
 	}
 	if _, err := ParseExpression(m.Formula, known); err != nil {
-		return fmt.Errorf("formula rejected: %v", err)
+		return &MethodFieldError{Field: "formula", Err: err}
 	}
 	return nil
 }

@@ -8,12 +8,17 @@ import (
 )
 
 func (c Certificate) ValidateForRender() error {
-	validationErrors := []error{}
-	if c.Number == "" {
-		validationErrors = append(validationErrors, fmt.Errorf("certificate number missing"))
+	validationErrors := make([]error, 0)
+	for name, value := range map[string]string{"id": c.ID, "number": c.Number, "decision": c.Decision, "digest": c.Digest} {
+		if value == "" {
+			validationErrors = append(validationErrors, fmt.Errorf("%w: certificate %s", ErrValidation, name))
+		}
 	}
-	if c.Digest == "" {
-		validationErrors = append(validationErrors, fmt.Errorf("certificate digest missing"))
+	if c.Status != CertificateIssued && c.Status != CertificateVoided {
+		validationErrors = append(validationErrors, fmt.Errorf("%w: certificate status", ErrValidation))
+	}
+	if c.IssuedAt.IsZero() {
+		validationErrors = append(validationErrors, fmt.Errorf("%w: certificate issuedAt", ErrValidation))
 	}
 	return errors.Join(validationErrors...)
 }
@@ -46,17 +51,19 @@ type Certificate struct {
 }
 
 func (c *Certificate) Void(actor, reason string, now time.Time) error {
+	if c == nil {
+		return ErrNotFound
+	}
 	if c.Status != CertificateIssued {
 		return ErrInvalidTransition
 	}
-	if reason == "" {
+	if actor == "" || reason == "" || now.IsZero() {
 		return fmt.Errorf("%w: reason", ErrValidation)
 	}
-	c.Status = CertificateVoided
-	c.VoidedAt = now
-	if reason == "" {
-		return fmt.Errorf("%w: reason", ErrValidation)
-	}
-	c.VoidReason = reason
+	next := *c
+	next.Status = CertificateVoided
+	next.VoidedAt = now.UTC()
+	next.VoidReason = reason
+	*c = next
 	return nil
 }

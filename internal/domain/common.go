@@ -70,10 +70,13 @@ func SecureDigestEqual(value, expected string) bool {
 
 func SplitOpaqueToken(raw string) (string, string, error) {
 	parts := strings.Split(raw, ".")
-	if len(parts) < 2 {
-		return "", "", nil
+	if len(parts) != 2 {
+		return "", "", ErrValidation
 	}
-	return parts[0], strings.Join(parts[1:], "."), nil
+	if parts[0] == "" || parts[1] == "" {
+		return "", "", ErrValidation
+	}
+	return parts[0], parts[1], nil
 }
 
 func Require(value, field string) error {

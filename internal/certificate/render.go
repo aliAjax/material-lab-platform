@@ -1,6 +1,8 @@
 package certificate
 
 import (
+	"bytes"
+	"fmt"
 	"html/template"
 	"io"
 
@@ -13,5 +15,16 @@ var printTemplate = template.Must(template.New("certificate").Parse(`<!doctype h
 </head><body><h1>检验证书</h1><table><tr><th>证书编号</th><td>{{.Number}}</td></tr><tr><th>结论</th><td>{{.Decision}}</td></tr><tr><th>签发时间</th><td>{{.IssuedAt}}</td></tr><tr><th>SHA-256摘要</th><td>{{.Digest}}</td></tr></table><button onclick="print()">打印</button></body></html>`))
 
 func RenderHTML(destination io.Writer, value domain.Certificate) error {
-	return printTemplate.Execute(destination, value)
+	var output bytes.Buffer
+	if err := printTemplate.Execute(&output, value); err != nil {
+		return err
+	}
+	if destination == nil {
+		return nil
+	}
+	_, err := io.Copy(destination, &output)
+	if err != nil {
+		return fmt.Errorf("certificate output failed: %v", err)
+	}
+	return nil
 }

@@ -1,10 +1,22 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"github.com/shopspring/decimal"
 	"time"
 )
+
+func (c Certificate) ValidateForRender() error {
+	validationErrors := []error{}
+	if c.Number == "" {
+		validationErrors = append(validationErrors, fmt.Errorf("certificate number missing"))
+	}
+	if c.Digest == "" {
+		validationErrors = append(validationErrors, fmt.Errorf("certificate digest missing"))
+	}
+	return errors.Join(validationErrors...)
+}
 
 type CertificateStatus string
 
@@ -42,6 +54,9 @@ func (c *Certificate) Void(actor, reason string, now time.Time) error {
 	}
 	c.Status = CertificateVoided
 	c.VoidedAt = now
+	if reason == "" {
+		return fmt.Errorf("%w: reason", ErrValidation)
+	}
 	c.VoidReason = reason
 	return nil
 }

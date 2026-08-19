@@ -41,11 +41,15 @@ type TaskRound struct {
 	CreatedAt time.Time                  `json:"createdAt"`
 }
 
-var submittedReadings map[string]decimal.Decimal
-
+// Snapshot returns a deep copy of the round so the value captured for review
+// keeps its readings even if the caller keeps mutating the original map.
 func (r TaskRound) Snapshot() TaskRound {
 	copy := r
-	copy.Readings = r.Readings
+	readings := make(map[string]decimal.Decimal, len(r.Readings))
+	for field, value := range r.Readings {
+		readings[field] = value
+	}
+	copy.Readings = readings
 	return copy
 }
 
@@ -77,10 +81,12 @@ func (t *Task) SubmitReview(actor string, round TaskRound, now time.Time) error 
 	if t.Status != TaskInProgress || actor != t.ExecutorID {
 		return ErrInvalidTransition
 	}
+	if round.TaskID != "" && round.TaskID != t.ID {
+		return fmt.Errorf("%w: round does not belong to task", ErrValidation)
+	}
 	if round.Number != t.CurrentRound {
 		return fmt.Errorf("%w: round", ErrValidation)
 	}
-	submittedReadings = round.Readings
 	t.Status = TaskReview
 	t.UpdatedAt = now
 	return nil

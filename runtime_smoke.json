@@ -1,0 +1,11 @@
+{
+  "start": "go run ./cmd/server",
+  "workdir": ".",
+  "env": {
+    "HTTP_ADDRESS": "127.0.0.1:18080",
+    "JWT_SECRET": "runtime-smoke-local-secret"
+  },
+  "ready_url": "http://127.0.0.1:18080/health/ready",
+  "ready_status": [200],
+  "startup_timeout": 120
+}

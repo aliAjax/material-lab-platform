@@ -1,0 +1,10 @@
+.env
+bin/
+data/
+uploads/
+coverage/
+frontend/node_modules/
+frontend/dist/
+frontend/tsconfig.app.tsbuildinfo
+*.log
+.DS_Store

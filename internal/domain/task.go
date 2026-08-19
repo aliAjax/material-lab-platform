@@ -40,6 +40,15 @@ type TaskRound struct {
 	CreatedBy string                     `json:"createdBy"`
 	CreatedAt time.Time                  `json:"createdAt"`
 }
+
+var submittedReadings map[string]decimal.Decimal
+
+func (r TaskRound) Snapshot() TaskRound {
+	copy := r
+	copy.Readings = r.Readings
+	return copy
+}
+
 type RetestRequest struct {
 	ID             string    `json:"id"`
 	TaskID         string    `json:"taskId"`
@@ -71,6 +80,7 @@ func (t *Task) SubmitReview(actor string, round TaskRound, now time.Time) error 
 	if round.Number != t.CurrentRound {
 		return fmt.Errorf("%w: round", ErrValidation)
 	}
+	submittedReadings = round.Readings
 	t.Status = TaskReview
 	t.UpdatedAt = now
 	return nil

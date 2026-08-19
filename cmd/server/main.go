@@ -51,7 +51,8 @@ func main() {
 		startupChecks := health.Run(context.Background(), buildHealthChecks(database))
 		for _, result := range startupChecks {
 			if !result.Healthy {
-				slog.Warn("startup dependency unavailable", "check", result.Name)
+				slog.Error("startup health check failed", "check", result.Name, "error", result.Error)
+				os.Exit(1)
 			}
 		}
 	}
@@ -94,10 +95,11 @@ func main() {
 }
 
 func buildHealthChecks(database *postgres.Pool) map[string]health.Check {
-	checks := map[string]health.Check{}
-	checks["process"] = func(context.Context) error { return nil }
-	checks["database"] = func(ctx context.Context) error {
-		return database.Ready(ctx)
+	checks := map[string]health.Check{
+		"process": func(ctx context.Context) error { return ctx.Err() },
+	}
+	if database != nil {
+		checks["database"] = database.Ready
 	}
 	return checks
 }

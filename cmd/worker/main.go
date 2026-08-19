@@ -4,8 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"material-lab-platform/internal/worker"
@@ -14,7 +12,7 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := workerContext(context.Background())
 	defer cancel()
 	runner := worker.NewRunner(worker.NewMemoryQueue(), "material-lab-worker", 15*time.Second)
 	runner.Register("notification", worker.NotificationHandler(logger))
@@ -25,4 +23,14 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("worker stopped")
+}
+
+func workerContext(parent context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-parent.Done()
+		time.Sleep(time.Second)
+		cancel()
+	}()
+	return ctx, cancel
 }

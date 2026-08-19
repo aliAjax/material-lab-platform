@@ -1,6 +1,10 @@
 package review
 
-import "github.com/shopspring/decimal"
+import (
+	"sort"
+
+	"github.com/shopspring/decimal"
+)
 
 type ReadingDifference struct {
 	Field  string           `json:"field"`
@@ -9,6 +13,8 @@ type ReadingDifference struct {
 }
 
 func Differences(before, after map[string]decimal.Decimal) []ReadingDifference {
+	before = cloneReadings(before)
+	after = cloneReadings(after)
 	differences := make([]ReadingDifference, 0)
 	seen := make(map[string]bool)
 	for field, oldValue := range before {
@@ -31,5 +37,17 @@ func Differences(before, after map[string]decimal.Decimal) []ReadingDifference {
 		copy := newValue
 		differences = append(differences, ReadingDifference{Field: field, After: &copy})
 	}
+	sort.Slice(differences, func(i, j int) bool { return differences[i].Field < differences[j].Field })
 	return differences
+}
+
+func cloneReadings(values map[string]decimal.Decimal) map[string]decimal.Decimal {
+	if values == nil {
+		return map[string]decimal.Decimal{}
+	}
+	copy := make(map[string]decimal.Decimal, len(values))
+	for key, value := range values {
+		copy[key] = value
+	}
+	return copy
 }

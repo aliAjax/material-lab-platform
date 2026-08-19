@@ -41,11 +41,20 @@ type TaskRound struct {
 	CreatedAt time.Time                  `json:"createdAt"`
 }
 
-var submittedReadings map[string]decimal.Decimal
-
 func (r TaskRound) Snapshot() TaskRound {
 	copy := r
-	copy.Readings = r.Readings
+	copy.Readings = cloneReadings(r.Readings)
+	return copy
+}
+
+func cloneReadings(values map[string]decimal.Decimal) map[string]decimal.Decimal {
+	if values == nil {
+		return nil
+	}
+	copy := make(map[string]decimal.Decimal, len(values))
+	for key, value := range values {
+		copy[key] = value
+	}
 	return copy
 }
 
@@ -80,7 +89,13 @@ func (t *Task) SubmitReview(actor string, round TaskRound, now time.Time) error 
 	if round.Number != t.CurrentRound {
 		return fmt.Errorf("%w: round", ErrValidation)
 	}
-	submittedReadings = round.Readings
+	if round.TaskID != "" && round.TaskID != t.ID {
+		return fmt.Errorf("%w: task round belongs to another task", ErrValidation)
+	}
+	if len(round.Readings) == 0 {
+		return fmt.Errorf("%w: round readings required", ErrValidation)
+	}
+	round = round.Snapshot()
 	t.Status = TaskReview
 	t.UpdatedAt = now
 	return nil

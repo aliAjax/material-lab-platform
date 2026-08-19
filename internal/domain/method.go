@@ -49,6 +49,13 @@ type MethodField struct {
 	Required bool             `json:"required"`
 }
 
+type MethodFieldError struct {
+	Field string
+	Err   error
+}
+
+func (e *MethodFieldError) Error() string { return fmt.Sprintf("method field %s: %v", e.Field, e.Err) }
+
 func (m *Method) Validate() error {
 	if err := Require(m.Code, "code"); err != nil {
 		return err
@@ -65,21 +72,21 @@ func (m *Method) Validate() error {
 	known := map[string]bool{}
 	for _, f := range m.Fields {
 		if strings.TrimSpace(f.Name) == "" || !f.TypeValid() {
-			return fmt.Errorf("%w: invalid method field", ErrValidation)
+			return &MethodFieldError{Field: f.Name, Err: fmt.Errorf("invalid method field")}
 		}
 		if known[f.Name] {
-			return fmt.Errorf("%w: duplicate field", ErrValidation)
+			return &MethodFieldError{Field: f.Name, Err: fmt.Errorf("duplicate field")}
 		}
 		known[f.Name] = true
 		if f.Min != nil && f.Max != nil && f.Min.GreaterThan(*f.Max) {
-			return fmt.Errorf("%w: field range", ErrValidation)
+			return &MethodFieldError{Field: f.Name, Err: fmt.Errorf("field range")}
 		}
 	}
 	if strings.TrimSpace(m.Formula) == "" {
 		return fmt.Errorf("%w: formula required", ErrValidation)
 	}
 	if _, err := ParseExpression(m.Formula, known); err != nil {
-		return err
+		return fmt.Errorf("formula rejected: %v", err)
 	}
 	return nil
 }

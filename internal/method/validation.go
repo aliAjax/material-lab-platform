@@ -1,6 +1,7 @@
 package method
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -24,6 +25,18 @@ func ValidateDefinition(definition domain.Method) []error {
 		}
 	}
 	return errors
+}
+
+func JoinValidationErrors(definition domain.Method) error {
+	validationErrors := ValidateDefinition(definition)
+	if len(validationErrors) == 0 {
+		return nil
+	}
+	messages := make([]string, 0, len(validationErrors))
+	for _, validationErr := range validationErrors {
+		messages = append(messages, validationErr.Error())
+	}
+	return errors.New(strings.Join(messages, "; "))
 }
 
 func IsImmutable(definition domain.Method) bool {

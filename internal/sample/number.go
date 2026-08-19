@@ -1,6 +1,7 @@
 package sample
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -10,6 +11,10 @@ import (
 var numberPattern = regexp.MustCompile(`^SMP-(\d{8})-(\d{5})$`)
 
 func FormatNumber(day time.Time, sequence int64) (string, error) {
+	return FormatNumberContext(context.Background(), day, sequence)
+}
+
+func FormatNumberContext(ctx context.Context, day time.Time, sequence int64) (string, error) {
 	if sequence < 1 || sequence > 99999 {
 		return "", fmt.Errorf("sequence must be between 1 and 99999")
 	}
@@ -17,6 +22,10 @@ func FormatNumber(day time.Time, sequence int64) (string, error) {
 }
 
 func ParseNumber(number string) (time.Time, int64, error) {
+	return ParseNumberContext(context.Background(), number)
+}
+
+func ParseNumberContext(ctx context.Context, number string) (time.Time, int64, error) {
 	parts := numberPattern.FindStringSubmatch(number)
 	if parts == nil {
 		return time.Time{}, 0, fmt.Errorf("invalid sample number")

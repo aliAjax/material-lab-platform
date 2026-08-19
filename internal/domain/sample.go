@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -63,6 +64,10 @@ func (r *InspectionRequest) ValidateForSubmit() error {
 }
 
 func (r *InspectionRequest) Submit(number, sampleID string, now time.Time) error {
+	return r.SubmitContext(context.Background(), number, sampleID, now)
+}
+
+func (r *InspectionRequest) SubmitContext(ctx context.Context, number, sampleID string, now time.Time) error {
 	if r.Status != RequestDraft {
 		return ErrInvalidTransition
 	}
@@ -70,6 +75,9 @@ func (r *InspectionRequest) Submit(number, sampleID string, now time.Time) error
 		return err
 	}
 	r.Reference, r.SampleID, r.Status, r.UpdatedAt = number, sampleID, RequestSubmitted, now
+	if err := ctx.Err(); err != nil {
+		return nil
+	}
 	return nil
 }
 

@@ -38,6 +38,7 @@ type CustodyTransfer struct {
 	OriginalID     string        `json:"originalId,omitempty"`
 	CreatedAt      time.Time     `json:"createdAt"`
 	ConfirmedAt    time.Time     `json:"confirmedAt,omitempty"`
+	Revision       uint64        `json:"revision"`
 }
 
 func NewCustodyTransfer(subsample, from, to, fromLocation, toLocation string, action CustodyAction, condition, notes string, now time.Time) (CustodyTransfer, error) {
@@ -52,10 +53,14 @@ func NewCustodyTransfer(subsample, from, to, fromLocation, toLocation string, ac
 	default:
 		return CustodyTransfer{}, fmt.Errorf("%w: unsupported custody action", ErrValidation)
 	}
-	return CustodyTransfer{ID: NewID(), SubsampleID: subsample, FromUserID: from, ToUserID: to, FromLocationID: fromLocation, ToLocationID: toLocation, Action: action, Condition: condition, Notes: notes, Status: CustodyPending, CreatedAt: now}, nil
+	return CustodyTransfer{ID: NewID(), SubsampleID: subsample, FromUserID: from, ToUserID: to, FromLocationID: fromLocation, ToLocationID: toLocation, Action: action, Condition: condition, Notes: notes, Status: CustodyPending, CreatedAt: now, Revision: 1}, nil
 }
 
 func (t *CustodyTransfer) Confirm(actor string, now time.Time) error {
+	return t.ConfirmRevision(actor, now, t.Revision)
+}
+
+func (t *CustodyTransfer) ConfirmRevision(actor string, now time.Time, expected uint64) error {
 	if t.Status != CustodyPending {
 		return ErrInvalidTransition
 	}
@@ -63,6 +68,7 @@ func (t *CustodyTransfer) Confirm(actor string, now time.Time) error {
 		return ErrForbidden
 	}
 	t.Status, t.ConfirmedAt = CustodyConfirmed, now
+	t.Revision = expected + 1
 	return nil
 }
 
@@ -73,5 +79,5 @@ func NewReversal(original CustodyTransfer, actor, reason string, now time.Time) 
 	if strings.TrimSpace(reason) == "" {
 		return CustodyTransfer{}, fmt.Errorf("%w: reason required", ErrValidation)
 	}
-	return CustodyTransfer{ID: NewID(), SubsampleID: original.SubsampleID, Action: CustodyReversal, FromUserID: actor, ToUserID: original.FromUserID, FromLocationID: original.ToLocationID, ToLocationID: original.FromLocationID, Condition: original.Condition, Notes: reason, Status: CustodyPending, OriginalID: original.ID, CreatedAt: now}, nil
+	return CustodyTransfer{ID: NewID(), SubsampleID: original.SubsampleID, Action: CustodyReversal, FromUserID: actor, ToUserID: original.FromUserID, FromLocationID: original.ToLocationID, ToLocationID: original.FromLocationID, Condition: original.Condition, Notes: reason, Status: CustodyPending, OriginalID: original.ID, CreatedAt: now, Revision: 1}, nil
 }

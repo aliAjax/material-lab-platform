@@ -61,6 +61,9 @@ func (t *CustodyTransfer) Confirm(actor string, now time.Time) error {
 }
 
 func (t *CustodyTransfer) ConfirmRevision(actor string, now time.Time, expected uint64) error {
+	if err := t.validateRevision(expected); err != nil {
+		return err
+	}
 	if t.Status != CustodyPending {
 		return ErrInvalidTransition
 	}
@@ -68,7 +71,20 @@ func (t *CustodyTransfer) ConfirmRevision(actor string, now time.Time, expected 
 		return ErrForbidden
 	}
 	t.Status, t.ConfirmedAt = CustodyConfirmed, now
-	t.Revision = expected + 1
+	t.Revision++
+	return nil
+}
+
+func (t *CustodyTransfer) validateRevision(expected uint64) error {
+	if t == nil {
+		return ErrNotFound
+	}
+	if expected == 0 {
+		return fmt.Errorf("%w: custody revision is required", ErrValidation)
+	}
+	if expected != t.Revision {
+		return fmt.Errorf("%w: custody revision %d changed to %d", ErrConflict, expected, t.Revision)
+	}
 	return nil
 }
 

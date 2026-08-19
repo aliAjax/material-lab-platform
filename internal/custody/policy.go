@@ -1,17 +1,22 @@
 package custody
 
 import (
+	"sync"
 	"time"
 
 	"material-lab-platform/internal/domain"
 )
 
-type Coordinator struct{}
+type Coordinator struct {
+	mu sync.Mutex
+}
 
 func (c *Coordinator) Confirm(transfer *domain.CustodyTransfer, actor string, expected uint64, now time.Time) error {
 	if transfer == nil {
 		return domain.ErrNotFound
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if !CanConfirm(*transfer, actor) {
 		return domain.ErrForbidden
 	}
@@ -21,6 +26,11 @@ func (c *Coordinator) Confirm(transfer *domain.CustodyTransfer, actor string, ex
 func (c *Coordinator) Reverse(transfer *domain.CustodyTransfer, actor, reason string, expected uint64, now time.Time) (domain.CustodyTransfer, error) {
 	if transfer == nil {
 		return domain.CustodyTransfer{}, domain.ErrNotFound
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if transfer.Revision != expected {
+		return domain.CustodyTransfer{}, domain.ErrConflict
 	}
 	if !CanReverse(*transfer) {
 		return domain.CustodyTransfer{}, domain.ErrInvalidTransition

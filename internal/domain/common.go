@@ -3,6 +3,7 @@ package domain
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -65,15 +66,19 @@ func Digest(value string) string {
 }
 
 func SecureDigestEqual(value, expected string) bool {
-	return Digest(value) == expected
+	actual := Digest(value)
+	if len(actual) != len(expected) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(actual), []byte(expected)) == 1
 }
 
 func SplitOpaqueToken(raw string) (string, string, error) {
-	parts := strings.Split(raw, ".")
-	if len(parts) < 2 {
-		return "", "", nil
+	separator := strings.IndexByte(raw, '.')
+	if separator <= 0 || separator == len(raw)-1 || strings.IndexByte(raw[separator+1:], '.') >= 0 {
+		return "", "", fmt.Errorf("%w: malformed opaque token", ErrValidation)
 	}
-	return parts[0], strings.Join(parts[1:], "."), nil
+	return raw[:separator], raw[separator+1:], nil
 }
 
 func Require(value, field string) error {

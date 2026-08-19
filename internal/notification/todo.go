@@ -19,6 +19,7 @@ type OwnershipError struct {
 func (e *OwnershipError) Error() string {
 	return fmt.Sprintf("notification %s cannot be read by %s", e.NotificationID, e.Actor)
 }
+func (e *OwnershipError) Unwrap() error { return domain.ErrForbidden }
 
 func Pending(items []domain.Notification, userID string) []domain.Notification {
 	result := make([]domain.Notification, 0)
@@ -36,7 +37,10 @@ func MarkRead(item domain.Notification, actor string, now time.Time) (domain.Not
 		return item, &OwnershipError{NotificationID: item.ID, Actor: actor}
 	}
 	if !item.ReadAt.IsZero() {
-		return item, errors.New(ErrAlreadyRead.Error())
+		return item, fmt.Errorf("%w: %s", ErrAlreadyRead, item.ID)
+	}
+	if now.IsZero() {
+		return item, fmt.Errorf("%w: read time is required", domain.ErrValidation)
 	}
 	item.ReadAt = now.UTC()
 	return item, nil

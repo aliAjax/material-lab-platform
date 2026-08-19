@@ -40,9 +40,35 @@ func (h *RedactingHandler) WithGroup(name string) slog.Handler {
 }
 
 func redact(attribute slog.Attr) slog.Attr {
+	attribute.Value = attribute.Value.Resolve()
+	if attribute.Value.Kind() == slog.KindGroup {
+		members := attribute.Value.Group()
+		clean := make([]slog.Attr, len(members))
+		for i, member := range members {
+			clean[i] = redact(member)
+		}
+		return slog.Group(attribute.Key, attrsToAny(clean)...)
+	}
 	lower := strings.ToLower(attribute.Key)
-	if strings.Contains(lower, "password") || strings.Contains(lower, "token") || strings.Contains(lower, "secret") {
+	if sensitiveKey(lower) {
 		return slog.String(attribute.Key, "[REDACTED]")
 	}
 	return attribute
+}
+
+func sensitiveKey(lower string) bool {
+	for _, fragment := range []string{"password", "token", "secret", "authorization", "cookie", "content"} {
+		if strings.Contains(lower, fragment) {
+			return true
+		}
+	}
+	return false
+}
+
+func attrsToAny(attributes []slog.Attr) []any {
+	values := make([]any, len(attributes))
+	for i, attribute := range attributes {
+		values[i] = attribute
+	}
+	return values
 }

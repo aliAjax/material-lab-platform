@@ -26,11 +26,5 @@ func main() {
 }
 
 func workerContext(parent context.Context) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-parent.Done()
-		time.Sleep(time.Second)
-		cancel()
-	}()
-	return ctx, cancel
+	return context.WithCancel(parent)
 }

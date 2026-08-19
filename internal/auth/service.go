@@ -115,23 +115,15 @@ func (s *Service) Parse(token string) (domain.User, error) {
 	return u, nil
 }
 func (s *Service) Refresh(raw string) (string, string, error) {
-	var sid, token string
-	for i, c := range raw {
-		if c == '.' {
-			sid, token = raw[:i], raw[i+1:]
-			break
-		}
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	sid, token, _ := domain.SplitOpaqueToken(raw)
+	s.mu.RLock()
 	session, ok := s.sessions[sid]
+	u := s.users[session.UserID]
+	s.mu.RUnlock()
 	now := time.Now().UTC()
-	if !ok || !session.RevokedAt.IsZero() || now.After(session.ExpiresAt) || domain.Digest(token) != session.TokenDigest {
+	if !ok || now.After(session.ExpiresAt) || !domain.SecureDigestEqual(token, session.TokenDigest) {
 		return "", "", errors.New("invalid refresh")
 	}
-	u := s.users[session.UserID]
-	session.RevokedAt = now
-	s.sessions[sid] = session
 	access, err := s.sign(u, now)
 	if err != nil {
 		return "", "", err
@@ -141,7 +133,11 @@ func (s *Service) Refresh(raw string) (string, string, error) {
 		return "", "", err
 	}
 	ns := Session{ID: domain.NewID(), UserID: u.ID, TokenDigest: domain.Digest(next), UserAgent: session.UserAgent, ExpiresAt: now.Add(s.refreshTTL), CreatedAt: now}
+	s.mu.Lock()
+	session.RevokedAt = now
+	s.sessions[sid] = session
 	s.sessions[ns.ID] = ns
+	s.mu.Unlock()
 	return access, ns.ID + "." + next, nil
 }
 func (s *Service) Logout(sessionID, userID string) error {

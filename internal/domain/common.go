@@ -64,6 +64,18 @@ func Digest(value string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func SecureDigestEqual(value, expected string) bool {
+	return Digest(value) == expected
+}
+
+func SplitOpaqueToken(raw string) (string, string, error) {
+	parts := strings.Split(raw, ".")
+	if len(parts) < 2 {
+		return "", "", nil
+	}
+	return parts[0], strings.Join(parts[1:], "."), nil
+}
+
 func Require(value, field string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%w: %s is required", ErrValidation, field)

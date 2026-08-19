@@ -16,7 +16,8 @@ RUN cd /app/frontend && npm install
 COPY . .
 WORKDIR /app
 RUN go build ./...
-CMD ["bash"]
+RUN go build -o /app/.runtime-bin ./cmd/server
+CMD ["/app/.runtime-bin"]
 RUN cd /app/frontend && npm run build
 
 # 多架构交叉构建示例（请在仓库根目录执行）：

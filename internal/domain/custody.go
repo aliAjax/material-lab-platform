@@ -61,8 +61,17 @@ func (t *CustodyTransfer) Confirm(actor string, now time.Time) error {
 }
 
 func (t *CustodyTransfer) ConfirmRevision(actor string, now time.Time, expected uint64) error {
+	if t == nil {
+		return ErrNotFound
+	}
+	if expected == 0 {
+		return fmt.Errorf("%w: expected revision required", ErrValidation)
+	}
 	if t.Status != CustodyPending {
-		return ErrInvalidTransition
+		return ErrConflict
+	}
+	if t.Revision != expected {
+		return ErrConflict
 	}
 	if actor != t.ToUserID {
 		return ErrForbidden
